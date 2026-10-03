@@ -1,0 +1,1 @@
+"""RecoverMate backend package."""
