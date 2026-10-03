@@ -18,7 +18,7 @@ export default function Login() {
       localStorage.setItem('rm_token', data.access_token)
       localStorage.setItem('rm_name', data.full_name)
       localStorage.setItem('rm_role', data.role)
-      navigate('/staff/found')
+      navigate('/staff/matches')
     } catch (err) {
       setError(err.message || 'Login failed')
     } finally {
@@ -57,7 +57,9 @@ export default function Login() {
         </button>
       </form>
       <p className="muted" style={{ marginTop: '1rem', marginBottom: 0, fontSize: '0.85rem' }}>
-        Seed admin: admin@demoarena.example / DemoArena2026!
+        Admin: admin@demoarena.example / DemoArena2026!
+        <br />
+        Staff: staff@demoarena.example / StaffNight2026!
       </p>
     </div>
   )

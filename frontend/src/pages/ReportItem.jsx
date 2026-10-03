@@ -17,44 +17,54 @@ const empty = {
   event_date: '2026-10-01',
 }
 
+function blankToNull(value) {
+  return value ? value : null
+}
+
 export default function ReportItem() {
   const [form, setForm] = useState(empty)
+  const [photo, setPhoto] = useState(null)
+  const [fileKey, setFileKey] = useState(0)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [confirmation, setConfirmation] = useState(null)
   const [loading, setLoading] = useState(false)
 
   function set(field, value) {
-    setForm((f) => ({ ...f, [field]: value }))
+    setForm((current) => ({ ...current, [field]: value }))
   }
 
   async function onSubmit(e) {
     e.preventDefault()
     setError('')
-    setSuccess('')
+    setConfirmation(null)
     setLoading(true)
     try {
       const payload = {
         venue_id: 1,
-        ...form,
-        reporter_email: form.reporter_email || null,
-        reporter_phone: form.reporter_phone || null,
-        category: form.category || null,
-        color: form.color || null,
-        brand: form.brand || null,
-        section: form.section || null,
-        row: form.row || null,
-        seat: form.seat || null,
-        gate: form.gate || null,
-        event_name: form.event_name || null,
-        event_date: form.event_date || null,
+        reporter_name: form.reporter_name,
+        reporter_email: blankToNull(form.reporter_email),
+        reporter_phone: blankToNull(form.reporter_phone),
+        item_description: form.item_description,
+        category: blankToNull(form.category),
+        color: blankToNull(form.color),
+        brand: blankToNull(form.brand),
+        section: blankToNull(form.section),
+        row: blankToNull(form.row),
+        seat: blankToNull(form.seat),
+        gate: blankToNull(form.gate),
+        event_name: blankToNull(form.event_name),
+        event_date: blankToNull(form.event_date),
       }
-      const report = await api.createLost(payload)
-      setSuccess(
-        `Report #${report.id} submitted. We'll help Guest Services look near section ${
-          report.section || '—'
-        }.`,
-      )
+      let report = await api.createLost(payload)
+      let photoNote = 'No photo attached'
+      if (photo) {
+        report = await api.uploadLostPhoto(report.id, photo)
+        photoNote = 'Photo saved'
+      }
+      setConfirmation({ ...report, photoNote })
       setForm(empty)
+      setPhoto(null)
+      setFileKey((key) => key + 1)
     } catch (err) {
       setError(err.message || 'Could not submit report')
     } finally {
@@ -67,10 +77,37 @@ export default function ReportItem() {
       <h1>Report a Lost Item</h1>
       <p className="muted">
         Tell us what you lost and where you were sitting during the Night Game.
-        No account required.
+        No account required. Category helps staff suggestions, but you can leave it blank.
       </p>
       {error && <div className="alert error">{error}</div>}
-      {success && <div className="alert success">{success}</div>}
+      {confirmation && (
+        <div className="alert success">
+          <p className="report-id">
+            Report ID <strong>#{confirmation.id}</strong>
+          </p>
+          <div>
+            {confirmation.item_description}
+            <br />
+            Contact: {confirmation.reporter_email || 'no email'} ·{' '}
+            {confirmation.reporter_phone || 'no phone'}
+            <br />
+            Sec {confirmation.section || '—'} · Row {confirmation.row || '—'} · Seat{' '}
+            {confirmation.seat || '—'} · {confirmation.gate || 'no gate'}
+            <br />
+            {confirmation.event_name || 'Event'} · {confirmation.event_date || '—'}
+            {confirmation.category ? ` · ${confirmation.category}` : ''}
+            <br />
+            {confirmation.photoNote}
+          </div>
+          {confirmation.photo_path && (
+            <img
+              className="thumb"
+              alt="Uploaded lost item"
+              src={`/${confirmation.photo_path}`}
+            />
+          )}
+        </div>
+      )}
 
       <form onSubmit={onSubmit} className="form-grid">
         <label className="full">
@@ -126,7 +163,7 @@ export default function ReportItem() {
           <input value={form.brand} onChange={(e) => set('brand', e.target.value)} />
         </label>
         <label>
-          Section *
+          Section
           <input
             value={form.section}
             onChange={(e) => set('section', e.target.value)}
@@ -170,6 +207,15 @@ export default function ReportItem() {
             type="date"
             value={form.event_date}
             onChange={(e) => set('event_date', e.target.value)}
+          />
+        </label>
+        <label className="full">
+          Photo
+          <input
+            key={fileKey}
+            type="file"
+            accept="image/*"
+            onChange={(e) => setPhoto(e.target.files?.[0] || null)}
           />
         </label>
         <div className="full">

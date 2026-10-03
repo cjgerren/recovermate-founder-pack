@@ -48,15 +48,18 @@ export default function Home() {
           <Link className="btn secondary" to="/staff/found">
             Staff: Log Found Item
           </Link>
+          <Link className="btn secondary" to="/staff/matches">
+            Staff: Match Queue
+          </Link>
         </div>
       </div>
 
       <div className="card">
-        <h2>How it works (Day 1)</h2>
+        <h2>How it works</h2>
         <ol className="muted">
-          <li>Guest reports a lost item with section, row, and seat.</li>
-          <li>Staff logs found items from the stands or gates.</li>
-          <li>Search by description or section to find possible matches.</li>
+          <li>Guest reports a lost item with section, row, seat, and an optional photo. No login.</li>
+          <li>Staff logs found items (category, location, date, notes, photo).</li>
+          <li>RecoverMate suggests matches. Staff accept or reject them in the queue.</li>
         </ol>
         <p className="muted" style={{ marginBottom: 0 }}>
           API status:{' '}

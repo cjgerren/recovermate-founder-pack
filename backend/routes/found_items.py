@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..deps import get_current_user, get_optional_user
+from ..deps import require_staff
+from ..matching import recompute_matches
 from ..models import FoundItem, User, Venue
 from ..schemas import FoundItemCreate, FoundItemOut
 
@@ -23,6 +24,7 @@ def list_found_items(
     q: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
+    """Public search list. Creating an item still requires staff or admin."""
     query = db.query(FoundItem)
     if venue_id is not None:
         query = query.filter(FoundItem.venue_id == venue_id)
@@ -46,8 +48,10 @@ def get_found_item(item_id: int, db: Session = Depends(get_db)):
 def create_found_item(
     body: FoundItemCreate,
     db: Session = Depends(get_db),
-    user: Optional[User] = Depends(get_optional_user),
+    user: User = Depends(require_staff),
 ):
+    if body.venue_id != user.venue_id:
+        raise HTTPException(status_code=403, detail="Cannot log items for another venue")
     venue = db.query(Venue).filter(Venue.id == body.venue_id).first()
     if not venue:
         raise HTTPException(status_code=404, detail="Venue not found")
@@ -57,7 +61,7 @@ def create_found_item(
 
     item = FoundItem(
         venue_id=body.venue_id,
-        logged_by_user_id=user.id if user else None,
+        logged_by_user_id=user.id,
         item_description=body.item_description,
         category=body.category,
         color=body.color,
@@ -67,11 +71,14 @@ def create_found_item(
         seat=body.seat,
         gate=body.gate,
         storage_location=body.storage_location,
+        notes=body.notes,
         event_name=event_name,
         event_date=event_date,
     )
     db.add(item)
     db.commit()
+    db.refresh(item)
+    recompute_matches(db)
     db.refresh(item)
     return item
 
@@ -81,16 +88,20 @@ async def upload_found_photo(
     item_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
 ):
     item = db.query(FoundItem).filter(FoundItem.id == item_id).first()
-    if not item:
+    if not item or item.venue_id != user.venue_id:
         raise HTTPException(status_code=404, detail="Found item not found")
 
     ext = Path(file.filename or "photo.jpg").suffix or ".jpg"
+    if ext.lower() not in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic"}:
+        ext = ".jpg"
     filename = f"found_{item_id}_{uuid4().hex[:8]}{ext}"
     dest = UPLOAD_DIR / filename
     content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Photo file is empty")
     dest.write_bytes(content)
 
     item.photo_path = f"uploads/{filename}"

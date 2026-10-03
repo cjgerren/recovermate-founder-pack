@@ -6,7 +6,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import LostReport, Venue
+from ..deps import require_staff
+from ..matching import recompute_matches
+from ..models import LostReport, User, Venue
 from ..schemas import LostReportCreate, LostReportOut
 
 router = APIRouter(prefix="/lost-reports", tags=["lost-reports"])
@@ -19,28 +21,34 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 def list_lost_reports(
     venue_id: Optional[int] = None,
     db: Session = Depends(get_db),
+    user: User = Depends(require_staff),
 ):
-    q = db.query(LostReport)
-    if venue_id is not None:
-        q = q.filter(LostReport.venue_id == venue_id)
+    """Guest contact details stay on the staff/admin side."""
+    q = db.query(LostReport).filter(LostReport.venue_id == user.venue_id)
+    if venue_id is not None and venue_id != user.venue_id:
+        raise HTTPException(status_code=403, detail="Cannot list another venue")
     return q.order_by(LostReport.created_at.desc()).all()
 
 
 @router.get("/{report_id}", response_model=LostReportOut)
-def get_lost_report(report_id: int, db: Session = Depends(get_db)):
+def get_lost_report(
+    report_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_staff),
+):
     report = db.query(LostReport).filter(LostReport.id == report_id).first()
-    if not report:
+    if not report or report.venue_id != user.venue_id:
         raise HTTPException(status_code=404, detail="Lost report not found")
     return report
 
 
 @router.post("", response_model=LostReportOut, status_code=201)
 def create_lost_report(body: LostReportCreate, db: Session = Depends(get_db)):
+    """Public guest report. No login required."""
     venue = db.query(Venue).filter(Venue.id == body.venue_id).first()
     if not venue:
         raise HTTPException(status_code=404, detail="Venue not found")
 
-    # Default event context from venue if guest left blank
     event_name = body.event_name or venue.default_event_name
     event_date = body.event_date or venue.default_event_date
 
@@ -63,6 +71,8 @@ def create_lost_report(body: LostReportCreate, db: Session = Depends(get_db)):
     db.add(report)
     db.commit()
     db.refresh(report)
+    recompute_matches(db)
+    db.refresh(report)
     return report
 
 
@@ -72,14 +82,21 @@ async def upload_lost_photo(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    """Public so a guest can attach a photo right after submitting."""
     report = db.query(LostReport).filter(LostReport.id == report_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Lost report not found")
+    if not file.filename and not file.content_type:
+        raise HTTPException(status_code=400, detail="Photo file is required")
 
     ext = Path(file.filename or "photo.jpg").suffix or ".jpg"
+    if ext.lower() not in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic"}:
+        ext = ".jpg"
     filename = f"lost_{report_id}_{uuid4().hex[:8]}{ext}"
     dest = UPLOAD_DIR / filename
     content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Photo file is empty")
     dest.write_bytes(content)
 
     report.photo_path = f"uploads/{filename}"

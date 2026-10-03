@@ -104,6 +104,7 @@ class FoundItemCreate(BaseModel):
     seat: Optional[str] = None
     gate: Optional[str] = None
     storage_location: Optional[str] = None
+    notes: Optional[str] = None
     event_name: Optional[str] = None
     event_date: Optional[date] = None
 
@@ -121,6 +122,7 @@ class FoundItemOut(BaseModel):
     seat: Optional[str] = None
     gate: Optional[str] = None
     storage_location: Optional[str] = None
+    notes: Optional[str] = None
     event_name: Optional[str] = None
     event_date: Optional[date] = None
     photo_path: Optional[str] = None
@@ -130,7 +132,7 @@ class FoundItemOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# --- Match / Claim stubs ---
+# --- Matches ---
 class MatchOut(BaseModel):
     id: int
     lost_report_id: int
@@ -140,6 +142,18 @@ class MatchOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class MatchDetailOut(MatchOut):
+    lost_report: LostReportOut
+    found_item: FoundItemOut
+
+
+class VenueBasicsOut(VenueOut):
+    lost_report_count: int
+    found_item_count: int
+    suggested_match_count: int
+    user_count: int
 
 
 class ClaimOut(BaseModel):

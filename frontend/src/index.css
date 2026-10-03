@@ -246,3 +246,78 @@ button:disabled {
   font-size: 0.8rem;
   padding: 1rem;
 }
+
+button.danger {
+  background: var(--danger);
+  color: white;
+}
+
+button.danger:hover {
+  background: #a93226;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.match-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.match-grid h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.match-grid p {
+  margin: 0 0 0.35rem;
+}
+
+@media (max-width: 640px) {
+  .match-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.thumb {
+  display: block;
+  margin-top: 0.4rem;
+  max-width: 140px;
+  max-height: 100px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.report-id {
+  font-size: 1.25rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.basics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1rem;
+  margin: 0;
+}
+
+.basics div {
+  margin: 0;
+}
+
+.basics dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.basics dd {
+  margin: 0.15rem 0 0;
+  font-size: 1.05rem;
+}

@@ -1,4 +1,4 @@
-"""RecoverMate API — Week 1 Day 1 skeleton (Demo Arena / Night Game)."""
+"""RecoverMate API — Demo Arena / Night Game pilot."""
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -6,8 +6,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .database import Base, engine
-from .routes import auth, found_items, health, lost_reports, venues
+from .database import ensure_schema
+from .routes import admin, auth, found_items, health, lost_reports, matches, venues
 from .seed import seed
 
 UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
@@ -16,15 +16,15 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    ensure_schema()
     seed()
     yield
 
 
 app = FastAPI(
     title="RecoverMate API",
-    description="B2B lost-and-found for stadiums & arenas — Day 1 Demo Arena pilot",
-    version="0.1.0",
+    description="B2B lost-and-found for stadiums & arenas — Demo Arena pilot",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -44,8 +44,10 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth.router, prefix="/api")
 app.include_router(venues.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 app.include_router(lost_reports.router, prefix="/api")
 app.include_router(found_items.router, prefix="/api")
+app.include_router(matches.router, prefix="/api")
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { api } from '../api'
 
 const empty = {
@@ -12,33 +11,35 @@ const empty = {
   seat: '',
   gate: '',
   storage_location: 'Guest Services — Main Concourse',
+  notes: '',
   event_name: 'Night Game',
   event_date: '2026-10-01',
 }
 
+function blankToNull(value) {
+  return value ? value : null
+}
+
 export default function StaffFoundLog() {
-  const token = localStorage.getItem('rm_token')
   const [form, setForm] = useState(empty)
+  const [photo, setPhoto] = useState(null)
+  const [fileKey, setFileKey] = useState(0)
   const [items, setItems] = useState([])
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
   function set(field, value) {
-    setForm((f) => ({ ...f, [field]: value }))
+    setForm((current) => ({ ...current, [field]: value }))
   }
 
   async function refresh() {
-    try {
-      const data = await api.listFound({ venue_id: 1 })
-      setItems(data)
-    } catch (err) {
-      setError(err.message)
-    }
+    const data = await api.listFound({ venue_id: 1 })
+    setItems(data)
   }
 
   useEffect(() => {
-    refresh()
+    refresh().catch((err) => setError(err.message))
   }, [])
 
   async function onSubmit(e) {
@@ -49,21 +50,29 @@ export default function StaffFoundLog() {
     try {
       const payload = {
         venue_id: 1,
-        ...form,
-        category: form.category || null,
-        color: form.color || null,
-        brand: form.brand || null,
-        section: form.section || null,
-        row: form.row || null,
-        seat: form.seat || null,
-        gate: form.gate || null,
-        storage_location: form.storage_location || null,
-        event_name: form.event_name || null,
-        event_date: form.event_date || null,
+        item_description: form.item_description,
+        category: blankToNull(form.category),
+        color: blankToNull(form.color),
+        brand: blankToNull(form.brand),
+        section: blankToNull(form.section),
+        row: blankToNull(form.row),
+        seat: blankToNull(form.seat),
+        gate: blankToNull(form.gate),
+        storage_location: blankToNull(form.storage_location),
+        notes: blankToNull(form.notes),
+        event_name: blankToNull(form.event_name),
+        event_date: blankToNull(form.event_date),
       }
-      const item = await api.createFound(payload)
-      setSuccess(`Logged found item #${item.id}`)
+      let item = await api.createFound(payload)
+      if (photo) {
+        item = await api.uploadFoundPhoto(item.id, photo)
+      }
+      setSuccess(
+        `Logged found item #${item.id}` + (item.photo_path ? ' with photo' : '') + '.',
+      )
       setForm(empty)
+      setPhoto(null)
+      setFileKey((key) => key + 1)
       await refresh()
     } catch (err) {
       setError(err.message || 'Could not log item')
@@ -74,18 +83,11 @@ export default function StaffFoundLog() {
 
   return (
     <div>
-      {!token && (
-        <div className="alert error">
-          You can log items without signing in for this demo, but staff should{' '}
-          <Link to="/login">log in</Link> so the entry is attributed.
-        </div>
-      )}
-
       <div className="card">
         <h1>Staff Found Log</h1>
         <p className="muted">
-          Log an item found in the stands, concourse, or at a gate during Night
-          Game.
+          Log an item found in the stands, concourse, or at a gate during Night Game.
+          Saving here recomputes suggested matches for the queue.
         </p>
         {error && <div className="alert error">{error}</div>}
         {success && <div className="alert success">{success}</div>}
@@ -101,8 +103,12 @@ export default function StaffFoundLog() {
             />
           </label>
           <label>
-            Category
-            <select value={form.category} onChange={(e) => set('category', e.target.value)}>
+            Category *
+            <select
+              required
+              value={form.category}
+              onChange={(e) => set('category', e.target.value)}
+            >
               <option value="">Select…</option>
               <option>Electronics</option>
               <option>Clothing</option>
@@ -121,6 +127,19 @@ export default function StaffFoundLog() {
             <input value={form.section} onChange={(e) => set('section', e.target.value)} />
           </label>
           <label>
+            Gate / entrance
+            <input value={form.gate} onChange={(e) => set('gate', e.target.value)} />
+          </label>
+          <label>
+            Event date *
+            <input
+              required
+              type="date"
+              value={form.event_date}
+              onChange={(e) => set('event_date', e.target.value)}
+            />
+          </label>
+          <label>
             Row
             <input value={form.row} onChange={(e) => set('row', e.target.value)} />
           </label>
@@ -128,9 +147,13 @@ export default function StaffFoundLog() {
             Seat
             <input value={form.seat} onChange={(e) => set('seat', e.target.value)} />
           </label>
-          <label>
-            Gate / entrance
-            <input value={form.gate} onChange={(e) => set('gate', e.target.value)} />
+          <label className="full">
+            Notes
+            <textarea
+              value={form.notes}
+              onChange={(e) => set('notes', e.target.value)}
+              placeholder="Where it was turned in, condition, anything written on it"
+            />
           </label>
           <label className="full">
             Storage location
@@ -147,11 +170,12 @@ export default function StaffFoundLog() {
             />
           </label>
           <label>
-            Event date
+            Photo
             <input
-              type="date"
-              value={form.event_date}
-              onChange={(e) => set('event_date', e.target.value)}
+              key={fileKey}
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPhoto(e.target.files?.[0] || null)}
             />
           </label>
           <div className="full">
@@ -167,11 +191,23 @@ export default function StaffFoundLog() {
         <ul className="item-list">
           {items.map((item) => (
             <li key={item.id}>
-              <strong>#{item.id}</strong> {item.item_description}
-              <div className="seat-tag">
-                Sec {item.section || '—'} · Row {item.row || '—'} · Seat{' '}
-                {item.seat || '—'}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                <strong>#{item.id}</strong>
+                <span className="badge">{item.status}</span>
               </div>
+              <div>{item.item_description}</div>
+              <div className="seat-tag">
+                {item.category || 'No category'} · Sec {item.section || '—'} ·{' '}
+                {item.gate || 'No gate'} · {item.event_date || '—'}
+              </div>
+              {item.notes && (
+                <div className="muted" style={{ fontSize: '0.9rem' }}>
+                  Notes: {item.notes}
+                </div>
+              )}
+              {item.photo_path && (
+                <img className="thumb" alt="" src={`/${item.photo_path}`} />
+              )}
             </li>
           ))}
         </ul>

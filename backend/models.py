@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,7 +39,7 @@ class FoundStatus(str, Enum):
 
 class MatchStatus(str, Enum):
     suggested = "suggested"
-    confirmed = "confirmed"
+    accepted = "accepted"
     rejected = "rejected"
 
 
@@ -132,6 +133,7 @@ class FoundItem(Base):
     seat: Mapped[str | None] = mapped_column(String(20), nullable=True)
     gate: Mapped[str | None] = mapped_column(String(40), nullable=True)
     storage_location: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     event_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     event_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     photo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -145,9 +147,14 @@ class FoundItem(Base):
 
 
 class Match(Base):
-    """Manual/stub match link — AI matching is out of scope for Day 1."""
+    """Suggested or staff-decided link between a lost report and a found item."""
 
     __tablename__ = "matches"
+    __table_args__ = (
+        UniqueConstraint(
+            "lost_report_id", "found_item_id", name="uq_matches_pair"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     lost_report_id: Mapped[int] = mapped_column(

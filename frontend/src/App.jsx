@@ -1,14 +1,20 @@
-import { NavLink, Route, Routes, useNavigate } from 'react-router-dom'
+import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import RequireAuth from './RequireAuth'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import ReportItem from './pages/ReportItem'
 import Search from './pages/Search'
 import StaffFoundLog from './pages/StaffFoundLog'
+import MatchQueue from './pages/MatchQueue'
+import VenueBasics from './pages/VenueBasics'
 
 function App() {
   const navigate = useNavigate()
+  // Re-read the session whenever the route changes (login/logout).
+  useLocation()
   const token = localStorage.getItem('rm_token')
   const name = localStorage.getItem('rm_name')
+  const role = localStorage.getItem('rm_role')
 
   function logout() {
     localStorage.removeItem('rm_token')
@@ -30,10 +36,20 @@ function App() {
           </NavLink>
           <NavLink to="/report">Report Lost Item</NavLink>
           <NavLink to="/search">Search Found Items</NavLink>
-          <NavLink to="/staff/found">Staff Found Log</NavLink>
+          {token && (
+            <>
+              <NavLink to="/staff/found">Found Log</NavLink>
+              <NavLink to="/staff/matches">Match Queue</NavLink>
+            </>
+          )}
+          {token && role === 'admin' && (
+            <NavLink to="/admin/venue">Venue</NavLink>
+          )}
           {token ? (
             <>
-              <span style={{ opacity: 0.85, fontSize: '0.9rem' }}>{name}</span>
+              <span style={{ opacity: 0.85, fontSize: '0.9rem' }}>
+                {name} ({role})
+              </span>
               <button
                 type="button"
                 className="secondary"
@@ -55,12 +71,35 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/report" element={<ReportItem />} />
           <Route path="/search" element={<Search />} />
-          <Route path="/staff/found" element={<StaffFoundLog />} />
+          <Route
+            path="/staff/found"
+            element={
+              <RequireAuth>
+                <StaffFoundLog />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/staff/matches"
+            element={
+              <RequireAuth>
+                <MatchQueue />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/venue"
+            element={
+              <RequireAuth admin>
+                <VenueBasics />
+              </RequireAuth>
+            }
+          />
         </Routes>
       </main>
 
       <p className="footer-note">
-        Week 1 Day 1 skeleton · No SMS / AI match / multi-tenant yet · Local demo only
+        Week 1 Days 3–7 · Rule-based match queue · No SMS, email claims, Stripe, or AI
       </p>
     </div>
   )
